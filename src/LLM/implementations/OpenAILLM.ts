@@ -16,6 +16,8 @@ import { BaseLLM } from "../core/BaseLLM";
 import { MessageManager } from "@/Agent/MessageManager/MessageManager";
 import type { RequestOptions } from "node_modules/openai/internal/request-options";
 import type { OpenAIMessage } from "../message/types";
+import type { ToolMetadata } from "@/Agent/ToolManager/types";
+import type { ToolManager } from "@/Agent/ToolManager/ToolManager";
 
 export class OpenAILLM extends BaseLLM implements ILLM {
   client: OpenAI;
@@ -24,46 +26,63 @@ export class OpenAILLM extends BaseLLM implements ILLM {
     super();
     this.client = new OpenAI({ baseURL, apiKey });
   }
-  converterMessages(messages: LLMMessage[]): OpenAIMessage[] {
-    return messages.map((message) => {
-      if (message.role === "tool") {
-        return {
-          role: "tool",
-          content: JSON.stringify(message.content),
-          tool_call_id: message.tool_call_id,
-        };
-      }
-      if (message.role === "assistant" && message.tool_calls) {
-        return {
-          role: "assistant",
-          tool_calls: message.tool_calls.map((toolCall) => {
-            return {
-              id: toolCall.id,
-              type: "function",
-              function: {
-                arguments: JSON.stringify(toolCall.input),
-                name: toolCall.name,
-              },
-            };
-          }),
-        };
-      }
+  converterMessage(message: LLMMessage): OpenAIMessage {
+    if (message.role === "tool") {
       return {
-        role: message.role,
+        role: "tool",
         content: JSON.stringify(message.content),
+        tool_call_id: message.tool_call_id,
       };
-    });
+    }
+    if (message.role === "assistant" && message.tool_calls) {
+      return {
+        role: "assistant",
+        tool_calls: message.tool_calls.map((toolCall) => {
+          return {
+            id: toolCall.id,
+            type: "function",
+            function: {
+              arguments: JSON.stringify(toolCall.input),
+              name: toolCall.name,
+            },
+          };
+        }),
+      };
+    }
+    return {
+      role: message.role,
+      content: JSON.stringify(message.content),
+    };
   }
+
+  convertToolSchema(ToolMetadata: ToolMetadata): unknown {
+    return {
+      type: "function",
+      function: {
+        name: ToolMetadata.name,
+        description: ToolMetadata.description,
+        parameters: ToolMetadata.ZodSchema.toJSONSchema({
+          target: "openapi-3.0",
+        }),
+      },
+    };
+  }
+
   buildRequestData(
     manager: MessageManager,
     model: string,
     stream: boolean,
-    tools?: unknown,
+    toolManager: ToolManager,
   ): unknown {
     /**
      * 通过MessageManager获取LLMMessages
      */
-    const messages = this.converterMessages(manager.getMessages());
+    const messages = manager.getMessages().map((message) => {
+      return this.converterMessage(message);
+    });
+    const tools = toolManager.getEnabledTools().map((toolMetadata) => {
+      return this.convertToolSchema(toolMetadata);
+    });
     /**
      * 将各种信息整理为请求数据
      */

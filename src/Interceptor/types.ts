@@ -9,6 +9,11 @@ import type {
   LLMMessageContent,
   LLMMessageToolCall,
 } from "@/LLM/message/types";
+import type {
+  Tool,
+  ToolCallInput,
+  ToolMetadata,
+} from "@/Agent/ToolManager/types";
 
 export interface InterceptorContext {
   [key: string]: any;
@@ -39,6 +44,25 @@ export interface Interceptor<TArgs extends any[], TReturn> {
     ctx: InterceptorContext,
     error: unknown,
   ) => TReturn | Promise<TReturn> | void;
+}
+
+export interface ToolInterceptor {
+  beforeRegister?: (
+    ctx: InterceptorContext,
+    toolMetadata: ToolMetadata,
+  ) => void;
+  afterRegister?: (ctx: InterceptorContext, toolMetadata: ToolMetadata) => void;
+  beforeExecute?: (
+    ctx: InterceptorContext,
+    toolMetadata: ToolMetadata,
+    callInput: ToolCallInput,
+  ) => void;
+  afterExecute?: (
+    ctx: InterceptorContext,
+    toolMetadata: ToolMetadata,
+    callInput: ToolCallInput,
+    result: unknown,
+  ) => void;
 }
 
 export interface StreamInterceptor {

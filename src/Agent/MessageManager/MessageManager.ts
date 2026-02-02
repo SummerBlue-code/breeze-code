@@ -52,7 +52,7 @@ export class MessageManager {
     });
   }
   addAssistantMessage(
-    content: LLMMessageContent,
+    content?: LLMMessageContent,
     toolCalls?: LLMMessageToolCall[],
   ) {
     /**
@@ -62,7 +62,7 @@ export class MessageManager {
     /**
      * 定义处理后的content
      */
-    let processedContent: LLMMessageContent = content;
+    let processedContent: LLMMessageContent | undefined = content;
     let processedToolCalls: LLMMessageToolCall[] | undefined = toolCalls;
     /**
      * 调用before拦截器

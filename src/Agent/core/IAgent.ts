@@ -5,7 +5,12 @@ import type {
   MessageInterceptor,
   NonStreamInterceptor,
   StreamInterceptor,
+  ToolInterceptor,
 } from "@/Interceptor/types";
+import { ToolManager } from "@/Agent/ToolManager/ToolManager";
+import { z, ZodType } from "zod";
+import type { Tool, ToolCallInput, ToolMetadata } from "../ToolManager/types";
+import type { LLMMessageContent } from "@/LLM/message/types";
 
 class IAgent {
   config!: {
@@ -17,16 +22,23 @@ class IAgent {
   };
   llm!: ILLM;
   messageManager: MessageManager;
+  toolManager: ToolManager;
   constructor(
     provider: string,
     baseUrl: string,
     apiKey: string,
     messageManager?: MessageManager,
+    toolManager?: ToolManager,
   ) {
     if (messageManager) {
       this.messageManager = messageManager;
     } else {
       this.messageManager = new MessageManager();
+    }
+    if (toolManager) {
+      this.toolManager = toolManager;
+    } else {
+      this.toolManager = new ToolManager();
     }
     if (provider === "openai") {
       this.llm = new OpenAILLM(baseUrl, apiKey);
@@ -34,34 +46,39 @@ class IAgent {
   }
 
   async generator() {
-    const tools = [
-      {
-        type: "function",
-        function: {
-          name: "get_current_weather",
-          description: "Get the current weather in a given location",
-          parameters: {
-            type: "object",
-            properties: {
-              location: {
-                type: "string",
-                description: "The city and state, e.g. San Francisco, CA",
-              },
-              unit: {
-                type: "string",
-                enum: ["celsius", "fahrenheit"],
-              },
-            },
-            required: ["location"],
-          },
-        },
-      },
-    ];
-    await this.llm.generateNonStream(
+    const response = await this.llm.generateNonStream(
       this.messageManager,
       "gpt-5-nano-2025-08-07",
-      tools,
+      this.toolManager,
     );
+
+    if (response.finish_reason === "tool_calls") {
+      this.messageManager.addAssistantMessage(
+        response.content,
+        response.tool_calls,
+      );
+
+      await Promise.all(
+        response.tool_calls!.map(async (toolCall) => {
+          const toolCallInput: ToolCallInput = { name: toolCall.name };
+          if (toolCall.input) {
+            toolCallInput.arguments = JSON.parse(toolCall.input);
+          }
+          const toolResult = await this.toolManager.execute(toolCallInput, {});
+
+          this.messageManager.addToolMessage(
+            toolCall.id,
+            toolResult as LLMMessageContent,
+          );
+          return {
+            tool_call_id: toolCall.id,
+            content: toolResult,
+          };
+        }),
+      );
+
+      await this.generator();
+    }
   }
 
   useResponseTimeInterceptor() {
@@ -143,6 +160,10 @@ class IAgent {
       },
       onRawResponse(ctx, raw) {
         console.log("[非流式生成] 收到原始响应:", raw);
+        console.log(
+          "[非流式生成] 打印原始消息:",
+          (raw as any).choices[0].message,
+        );
         return raw;
       },
       onStateUpdate(ctx, state) {
@@ -181,24 +202,67 @@ class IAgent {
         return result;
       },
     };
+    const ToolManagerLogInterceptor: ToolInterceptor = {
+      beforeRegister(ctx, toolMetaData) {
+        console.log("[工具管理器] 准备注册工具: [");
+        console.log("工具信息:", toolMetaData);
+        console.log("]");
+      },
+      afterRegister(ctx, toolMetadata) {
+        console.log("[工具管理器] 成功注册工具:", toolMetadata);
+      },
+      beforeExecute(ctx, toolMetadata, callInput) {
+        console.log("[工具管理器] 准备执行工具: [");
+        console.log("工具信息:", toolMetadata);
+        console.log("工具输入:", callInput);
+        console.log("]");
+      },
+      afterExecute(ctx, toolMetadata, callInput, result) {
+        console.log("[工具管理器] 成功执行工具: [");
+        console.log("工具信息:", toolMetadata);
+        console.log("工具输入:", callInput);
+        console.log("工具输出:", result);
+        console.log("]");
+      },
+    };
     this.messageManager.useMessageInterceptor(messageManagerLogInterceptor);
     this.llm.useStreamInterceptor(LLMStreamLogInterceptor);
     this.llm.useNonStreamInterceptor(LLMNonStreamLogInterceptor);
+    this.toolManager.useToolInterceptor(ToolManagerLogInterceptor);
   }
 }
 
 const messageManager = new MessageManager();
+
+const toolManager = new ToolManager();
 
 const agent = new IAgent(
   "openai",
   "https://yunwu.ai/v1",
   "sk-3rsiLb4bRW3aCBhhheeQiKBcEdd4nuTkphOVjlqbiG4fmKAY",
   messageManager,
+  toolManager,
 );
 agent.useResponseTimeInterceptor();
 agent.uselogInterceptor();
 
 messageManager.setSystemMessage("你是一个高级的人工智能助手Alice");
 messageManager.addUserMessage("北京今天天气怎么样");
+
+// toolManager.register(
+//   "get_current_weather",
+//   "Get the current weather in a given location",
+//   z.object({
+//     location: z.string(),
+//     unit: z.enum(["celsius", "fahrenheit"]).optional(),
+//   }),
+//   async (args: { location: string; unit?: string }) => {
+//     // Call the weather API and return the result
+//     return (
+//       "The current weather in " + args.location + " is 20 degrees " + args.unit
+//     );
+//   },
+//   { enabled: true },
+// );
 
 agent.generator();

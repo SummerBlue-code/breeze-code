@@ -8,12 +8,15 @@ import type {
   StreamInterceptor,
 } from "@/Interceptor/types";
 import type { MessageManager } from "@/Agent/MessageManager/MessageManager";
+import type { ToolManager } from "@/Agent/ToolManager/ToolManager";
+import type { ToolMetadata } from "@/Agent/ToolManager/types";
 
 export abstract class BaseLLM {
   protected nonStreamInterceptors: NonStreamInterceptor[] = [];
   protected streamInterceptors: StreamInterceptor[] = [];
 
-  abstract converterMessages(messages: LLMMessage[]): unknown[];
+  abstract converterMessage(messages: LLMMessage): unknown;
+  abstract convertToolSchema(toolMetadata: ToolMetadata): unknown;
 
   abstract buildRequestData(
     manager: MessageManager,
@@ -45,7 +48,7 @@ export abstract class BaseLLM {
   async generateNonStream(
     messageManager: MessageManager,
     model: string,
-    tools?: unknown, // TODO: Add type
+    tools?: ToolManager,
   ): Promise<LLMResponseNonStream> {
     /**
      * 初始化拦截器的context
@@ -175,7 +178,7 @@ export abstract class BaseLLM {
       | {
           id: string;
           name: string;
-          input?: string | null | undefined;
+          input?: string | undefined;
         }[]
       | undefined = undefined;
     if (streamState.tool_calls) {
@@ -286,7 +289,7 @@ export abstract class BaseLLM {
   async *generateStream(
     messageManager: MessageManager,
     model: string,
-    tools?: unknown,
+    tools?: ToolManager,
   ): AsyncGenerator<StreamChunk | LLMResponseStream> {
     /**
      * 初始化拦截器的context

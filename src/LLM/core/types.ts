@@ -29,7 +29,7 @@ export interface LLMUsage {
  */
 export type LLMResponseNonStream = {
   /** 完整的文本内容 */
-  content?: string | null;
+  content?: string;
   /** 完整的工具调用 */
   tool_calls?: {
     /** LLM 给本次工具调用赋予的 id */
@@ -37,7 +37,7 @@ export type LLMResponseNonStream = {
     /** 工具调用的函数名 */
     name: string;
     /** 工具调用的函数的输入参数(JSON格式) */
-    input?: string | null;
+    input?: string;
   }[];
   /** LLM的结束原因 */
   finish_reason?: LLMFinishReason;
@@ -47,7 +47,7 @@ export type LLMResponseNonStream = {
 
 export type LLMResponseStream = {
   /** 完整的文本内容 */
-  content?: string | null;
+  content?: string;
   /** 完整的工具调用 */
   tool_calls?: {
     /** LLM 给本次工具调用赋予的 id */
@@ -55,7 +55,7 @@ export type LLMResponseStream = {
     /** 工具调用的函数名 */
     name: string;
     /** 工具调用的函数的输入参数(JSON格式) */
-    input?: string | null;
+    input?: string;
   }[];
   /** LLM的结束原因 */
   finish_reason?: LLMFinishReason;

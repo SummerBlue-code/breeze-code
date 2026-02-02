@@ -14,7 +14,8 @@
     "openai": "^6.17.0",
     "react": "^19",
     "react-dom": "^19",
-    "tailwindcss": "^4.1.11"
+    "tailwindcss": "^4.1.11",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/react": "^19",

@@ -129,7 +129,7 @@ export type LLMMessageToolCall = {
  */
 export type LLMMessage = {
   role: LLMMessageRole;
-  content: LLMMessageContent | LLMMessageContent[];
+  content?: LLMMessageContent | LLMMessageContent[];
   tool_calls?: LLMMessageToolCall[];
   tool_call_id?: string;
 };

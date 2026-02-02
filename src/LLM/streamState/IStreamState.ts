@@ -30,7 +30,7 @@ export interface StreamState {
     /** 工具调用的函数名 */
     name: string;
     /** 工具调用的函数的输入参数(JSON格式) */
-    input?: string | null;
+    input?: string;
   }[];
   /** LLM的结束原因 */
   finish_reason?: LLMFinishReason;

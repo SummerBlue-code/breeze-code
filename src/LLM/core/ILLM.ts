@@ -8,12 +8,13 @@ import type {
   NonStreamInterceptor,
   StreamInterceptor,
 } from "@/Interceptor/types";
+import type { ToolManager } from "@/Agent/ToolManager/ToolManager";
 
 export interface ILLM {
   generateNonStream(
     messages: MessageManager,
     model: string,
-    tools?: unknown, // TODO: Add type
+    tools?: ToolManager,
   ): Promise<LLMResponseNonStream>;
 
   useNonStreamInterceptor(interceptor: NonStreamInterceptor): void;
@@ -21,7 +22,7 @@ export interface ILLM {
   generateStream(
     messages: MessageManager,
     model: string,
-    tools?: unknown, // TODO: Add type
+    tools?: ToolManager,
   ): AsyncGenerator<StreamChunk | LLMResponseStream>;
 
   useStreamInterceptor(interceptor: StreamInterceptor): void;
