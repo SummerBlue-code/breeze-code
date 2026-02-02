@@ -1,7 +1,6 @@
 import type { LLMResponseStream, LLMResponseNonStream, LLMMessage } from "..";
 import type { StreamChunk, StreamState } from "../streamState/IStreamState";
 import type { NonStreamState } from "../nonStreamState/INonStreamState";
-import type { IAgentMessages } from "@/Agent/Messages";
 import type {
   InterceptorContext,
   NonStreamInterceptor,

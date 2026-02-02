@@ -1,5 +1,4 @@
 import type { LLMMessage, LLMResponseNonStream } from "..";
-import type { IAgentMessages } from "../../Agent/Messages";
 import type { LLMResponseStream } from "..";
 import type { StreamChunk } from "../streamState/IStreamState";
 import type { NonStreamState } from "../nonStreamState/INonStreamState";

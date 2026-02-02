@@ -5,7 +5,6 @@ import type {
   LLMResponseStream,
   LLMUsage,
 } from "..";
-import { AgentMessages, type IAgentMessages } from "../../Agent/Messages";
 import { OpenAI } from "openai";
 import { MessageConverter } from "../converter/messageConverter";
 import type { NonStreamState } from "../nonStreamState/INonStreamState";
