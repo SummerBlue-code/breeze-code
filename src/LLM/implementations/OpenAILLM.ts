@@ -17,6 +17,11 @@ import type { RequestOptions } from "node_modules/openai/internal/request-option
 import type { OpenAIMessage } from "../message/types";
 import type { ToolMetadata } from "@/Agent/ToolManager/types";
 import type { ToolManager } from "@/Agent/ToolManager/ToolManager";
+import {
+  LLMCallError,
+  LLMMessageConverterError,
+  LLMToolSchemaConverterError,
+} from "@/Errors/LLMErrors";
 
 export class OpenAILLM extends BaseLLM implements ILLM {
   client: OpenAI;
@@ -77,10 +82,21 @@ export class OpenAILLM extends BaseLLM implements ILLM {
      * 通过MessageManager获取LLMMessages
      */
     const messages = manager.getMessages().map((message) => {
-      return this.converterMessage(message);
+      try {
+        return this.converterMessage(message);
+      } catch (e) {
+        throw new LLMMessageConverterError(JSON.stringify(message), e as Error);
+      }
     });
     const tools = toolManager.getEnabledTools().map((toolMetadata) => {
-      return this.convertToolSchema(toolMetadata);
+      try {
+        return this.convertToolSchema(toolMetadata);
+      } catch (e) {
+        throw new LLMToolSchemaConverterError(
+          JSON.stringify(toolMetadata),
+          e as Error,
+        );
+      }
     });
     /**
      * 将各种信息整理为请求数据
@@ -239,66 +255,27 @@ export class OpenAILLM extends BaseLLM implements ILLM {
     /**
      * 获取LLM的原始响应
      */
-    const rawResponse = await this.client.chat.completions.create(
-      requestData as never,
-    );
-    return rawResponse;
+    try {
+      const rawResponse = await this.client.chat.completions.create(
+        requestData as never,
+      );
+      return rawResponse;
+    } catch (e) {
+      throw new LLMCallError(requestData, e as Error);
+    }
   }
 
   async getRawStream(requestData: unknown) {
     /**
      * 获取LLM的原始流
      */
-    const rawStream = await this.client.chat.completions.create(
-      requestData as never,
-    );
-    return rawStream;
+    try {
+      const rawStream = await this.client.chat.completions.create(
+        requestData as never,
+      );
+      return rawStream;
+    } catch (e) {
+      throw new LLMCallError(requestData, e as Error);
+    }
   }
 }
-
-// const llm = new OpenAILLM(
-//   "https://yunwu.ai/v1",
-//   "sk-3rsiLb4bRW3aCBhhheeQiKBcEdd4nuTkphOVjlqbiG4fmKAY",
-// );
-
-// const messageManager = new MessageManager();
-// messageManager.setSystemMessage("你是一个高级的人工智能助手Alice");
-// messageManager.addUserMessage("北京今天天气怎么样");
-
-// const tools = [
-//   {
-//     type: "function",
-//     function: {
-//       name: "get_current_weather",
-//       description: "Get the current weather in a given location",
-//       parameters: {
-//         type: "object",
-//         properties: {
-//           location: {
-//             type: "string",
-//             description: "The city and state, e.g. San Francisco, CA",
-//           },
-//           unit: {
-//             type: "string",
-//             enum: ["celsius", "fahrenheit"],
-//           },
-//         },
-//         required: ["location"],
-//       },
-//     },
-//   },
-// ];
-
-// const response = await llm.generateNonStream(
-//   messageManager,
-//   "gpt-5-nano-2025-08-07",
-//   tools,
-// );
-
-// console.log(response);
-
-// const stream = llm.generateStream(messageManager, "gpt-5-nano-2025-08-07");
-
-// for await (const chunk of stream) {
-//   console.log(chunk);
-// }

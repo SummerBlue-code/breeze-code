@@ -2,6 +2,13 @@
 import { z, ZodType } from "zod";
 import type { Tool, ToolContext, ToolMetadata, ToolCallInput } from "./types";
 import type { ToolInterceptor } from "@/Interceptor/types";
+import {
+  ToolExecutionError,
+  ToolNotFound,
+  ToolNotEnabled,
+  ToolValidationError,
+  ToolAlreadyExists,
+} from "@/Errors/ToolErrors";
 
 /**
  * 🧰 LLM Agent 工具管理器
@@ -33,7 +40,7 @@ export class ToolManager {
      * 如果工具已经注册，抛出错误
      */
     if (this.tools.has(name)) {
-      throw new Error(`Tool "${name}" is already registered`);
+      throw new ToolAlreadyExists(name);
     }
 
     const tool: Tool = {
@@ -96,22 +103,20 @@ export class ToolManager {
     // 1️⃣ 查找工具
     const tool = this.tools.get(call.name);
     if (!tool) {
-      throw new Error(`[工具管理器] 工具 "${call.name}" 没有找到`);
+      throw new ToolNotFound(call.name);
     }
 
     // 2️⃣ 检查是否启用
     if (!tool.enabled) {
-      throw new Error(`[工具管理器] 工具 "${call.name}" 没有启用`);
+      throw new ToolNotEnabled(tool.name);
     }
 
     // 4️⃣ 参数校验
     let validatedArgs: any;
     try {
       validatedArgs = tool.ZodSchema.parse(call.arguments);
-    } catch (error) {
-      throw new Error(
-        `[工具管理器] 参数校验失败: "${(error as Error).message}"`,
-      );
+    } catch (e) {
+      throw new ToolValidationError(tool.name, e as Error);
     }
 
     const toolMetadata: ToolMetadata = {
@@ -141,9 +146,8 @@ export class ToolManager {
         }
       }
       return result;
-    } catch (error) {
-      console.error(`[工具管理器] 工具 "${call.name}" 执行发生错误:`, error);
-      throw new Error(`[工具管理器] 工具执行错误: ${(error as Error).message}`);
+    } catch (e) {
+      throw new ToolExecutionError(tool.name, e as Error, validatedArgs);
     }
   }
 

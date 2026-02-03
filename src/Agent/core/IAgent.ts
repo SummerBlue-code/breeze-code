@@ -1,4 +1,4 @@
-import type { ILLM } from "@/LLM";
+import type { ILLM, LLMResponseNonStream, LLMResponseStream } from "@/LLM";
 import { OpenAILLM } from "@/LLM/implementations/OpenAILLM";
 import { MessageManager } from "../MessageManager/MessageManager";
 import type {
@@ -11,25 +11,26 @@ import { ToolManager } from "@/Agent/ToolManager/ToolManager";
 import { z, ZodType } from "zod";
 import type { Tool, ToolCallInput, ToolMetadata } from "../ToolManager/types";
 import type { LLMMessageContent } from "@/LLM/message/types";
+import { Config } from "./Config";
+import { AgentConfigError } from "@/Errors/AgentErrors";
 
-class IAgent {
-  config!: {
-    provider: string;
-    baseUrl: string;
-    apiKey: string;
-    stream: boolean;
-    defaultModel: string;
-  };
-  llm!: ILLM;
+export class IAgent {
+  config: Config;
+  llm: ILLM;
   messageManager: MessageManager;
   toolManager: ToolManager;
+
   constructor(
-    provider: string,
-    baseUrl: string,
-    apiKey: string,
+    config: Config,
     messageManager?: MessageManager,
     toolManager?: ToolManager,
   ) {
+    this.config = config;
+    if (this.config.defaultProvider === "openai") {
+      this.llm = new OpenAILLM(this.config.baseUrl, this.config.apiKey);
+    } else {
+      throw new AgentConfigError("Agent的defaultProvider配置错误", {});
+    }
     if (messageManager) {
       this.messageManager = messageManager;
     } else {
@@ -40,17 +41,26 @@ class IAgent {
     } else {
       this.toolManager = new ToolManager();
     }
-    if (provider === "openai") {
-      this.llm = new OpenAILLM(baseUrl, apiKey);
-    }
   }
 
   async generator() {
-    const response = await this.llm.generateNonStream(
-      this.messageManager,
-      "gpt-5-nano-2025-08-07",
-      this.toolManager,
-    );
+    let response!: LLMResponseStream | LLMResponseNonStream;
+    if (this.config.stream) {
+      const stream = await this.llm.generateStream(
+        this.messageManager,
+        this.config.defaultModel,
+        this.toolManager,
+      );
+      for await (const chunk of stream) {
+        response = chunk as LLMResponseStream;
+      }
+    } else {
+      response = await this.llm.generateNonStream(
+        this.messageManager,
+        this.config.defaultModel,
+        this.toolManager,
+      );
+    }
 
     if (response.finish_reason === "tool_calls") {
       this.messageManager.addAssistantMessage(
@@ -68,7 +78,7 @@ class IAgent {
 
           this.messageManager.addToolMessage(
             toolCall.id,
-            toolResult as LLMMessageContent,
+            JSON.stringify(toolResult),
           );
           return {
             tool_call_id: toolCall.id,
@@ -231,38 +241,3 @@ class IAgent {
     this.toolManager.useToolInterceptor(ToolManagerLogInterceptor);
   }
 }
-
-const messageManager = new MessageManager();
-
-const toolManager = new ToolManager();
-
-const agent = new IAgent(
-  "openai",
-  "https://yunwu.ai/v1",
-  "sk-3rsiLb4bRW3aCBhhheeQiKBcEdd4nuTkphOVjlqbiG4fmKAY",
-  messageManager,
-  toolManager,
-);
-agent.useResponseTimeInterceptor();
-agent.uselogInterceptor();
-
-messageManager.setSystemMessage("你是一个高级的人工智能助手Alice");
-messageManager.addUserMessage("北京今天天气怎么样");
-
-// toolManager.register(
-//   "get_current_weather",
-//   "Get the current weather in a given location",
-//   z.object({
-//     location: z.string(),
-//     unit: z.enum(["celsius", "fahrenheit"]).optional(),
-//   }),
-//   async (args: { location: string; unit?: string }) => {
-//     // Call the weather API and return the result
-//     return (
-//       "The current weather in " + args.location + " is 20 degrees " + args.unit
-//     );
-//   },
-//   { enabled: true },
-// );
-
-agent.generator();
