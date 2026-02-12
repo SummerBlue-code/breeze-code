@@ -1,3 +1,5 @@
+import type { ReasoningStep } from "@/Agent/core/AgentState";
+
 /**
  * 统一的消息角色类型
  *
@@ -132,6 +134,7 @@ export type LLMMessage = {
   content?: LLMMessageContent | LLMMessageContent[];
   tool_calls?: LLMMessageToolCall[];
   tool_call_id?: string;
+  reasoning_step?: ReasoningStep;
 };
 
 export type OpenAIMessageRole = "user" | "assistant" | "system" | "tool";

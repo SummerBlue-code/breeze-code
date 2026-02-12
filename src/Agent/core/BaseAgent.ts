@@ -14,7 +14,7 @@ import type { LLMMessageContent } from "@/LLM/message/types";
 import { Config } from "./Config";
 import { AgentConfigError } from "@/Errors/AgentErrors";
 
-export class IAgent {
+export abstract class BaseAgent {
   config: Config;
   llm: ILLM;
   messageManager: MessageManager;
@@ -43,53 +43,7 @@ export class IAgent {
     }
   }
 
-  async generator() {
-    let response!: LLMResponseStream | LLMResponseNonStream;
-    if (this.config.stream) {
-      const stream = await this.llm.generateStream(
-        this.messageManager,
-        this.config.defaultModel,
-        this.toolManager,
-      );
-      for await (const chunk of stream) {
-        response = chunk as LLMResponseStream;
-      }
-    } else {
-      response = await this.llm.generateNonStream(
-        this.messageManager,
-        this.config.defaultModel,
-        this.toolManager,
-      );
-    }
-
-    if (response.finish_reason === "tool_calls") {
-      this.messageManager.addAssistantMessage(
-        response.content,
-        response.tool_calls,
-      );
-
-      await Promise.all(
-        response.tool_calls!.map(async (toolCall) => {
-          const toolCallInput: ToolCallInput = { name: toolCall.name };
-          if (toolCall.input) {
-            toolCallInput.arguments = JSON.parse(toolCall.input);
-          }
-          const toolResult = await this.toolManager.execute(toolCallInput, {});
-
-          this.messageManager.addToolMessage(
-            toolCall.id,
-            JSON.stringify(toolResult),
-          );
-          return {
-            tool_call_id: toolCall.id,
-            content: toolResult,
-          };
-        }),
-      );
-
-      await this.generator();
-    }
-  }
+  abstract generator(): unknown | Promise<unknown>;
 
   useResponseTimeInterceptor() {
     const LLMNonStreamResponseTimeInterceptor: NonStreamInterceptor = {
