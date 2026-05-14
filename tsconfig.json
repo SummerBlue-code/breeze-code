@@ -26,6 +26,8 @@
       "@/*": ["./src/*"]
     },
 
+    "ignoreDeprecations":"6.0",
+
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,

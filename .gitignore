@@ -32,3 +32,15 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Database data (do not upload)
+docker/data/
+
+# Local data
+data/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
